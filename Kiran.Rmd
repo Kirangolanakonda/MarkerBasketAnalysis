@@ -1,0 +1,187 @@
+---
+title: "Market Basket Analysis"
+author: "Kiran Kumar Golanakonda"
+date: "17/06/2022"
+output: 
+  word_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+#install and load package arules
+#install.packages("arules")
+library(arules)
+#install and load arulesViz
+#install.packages("arulesViz")
+library(arulesViz)
+#install and load tidyverse
+#install.packages("tidyverse")
+library(tidyverse)
+#install and load readxml
+#install.packages("readxml")
+library(readxl)
+#install and load knitr
+#install.packages("knitr")
+library(knitr)
+#load ggplot2 as it comes in tidyverse
+library(ggplot2)
+#install and load lubridate
+#install.packages("lubridate")
+library(lubridate)
+#install and load plyr
+#install.packages("plyr")
+library(plyr)
+library(dplyr)
+```
+
+## Summary
+
+Market basket analysis involves the data mining technique utilized in finding the association between item sets and those identifiable from the customer's behavior. The project has utilized the R programming tool to perform the market basket analysis process. The results for this project is essential as it will help in providing information to the retailers to have an understanding of the purchase behavior of their potential buyers that is essential in decision making process. With the current algorithms implemented in market basket analysis, they only work on static data and not on data that changes with time. Therefore, the project has implemented associating rule data mining technique that has helped in examining the customer's purchasing behavior.The project answered the research question of what is the likelihood of customers purchasing products along with particular product category. The dataset for this project has been obtained from UCI Machine Learning Repository that includes transactions for a UK-based online retail.
+
+## Introduction
+
+In recent days, customers have been provided with a wide range of options which are independent in almost any domain. In the past, customers had to choose from a catalogue when they had to purchase anything from a given store. However, with the technological advancement, there has been an exponential increase in number of options for consumers where they can make choices from a wide variety of products. This has resulted to limitless possibilities for businesses. With this, a huge number of new competitors have entered into the market leading to increased competitions. Therefore, the retail stores are seeking marketing strategies to ensure that they attract new customers and maintain their current customers.There has been a remarkable success with the Market basket analysis strategy. Therefore, to gain insights into market basket analysis, the project has used information concerning the customer purchase on what they buy and when they buy. The results from the project will help shop manager with the ability of determining strong association between goods that are important in placing the products that co-occur close to one another. The shop managers will also be able to make decision that involve store shelf arrangement, cross-selling, items to stock more, and up-selling.
+
+## Literature Review
+Kamley et al. (2014) in their study developed an association rule mining model to help gain insights into the interesting patterns in the stock market dataset. With the model, it was possible to predict the price of share essential for investors and stock brokers that will help them invest in the right many to understand market conditions.In a study by Solnet et al. (2016), the authors tried to understand the potential of market basket analysis to the revenue growth of hotels. From the research, the authors were able to derive the products and services that were satisfying and attractive to the guests. 
+In their study, Kapadia & Kalyandurgmath (2015) performed an analysis of the consumer behavior patterns. The study provided insights related to the basket formation that helped in managing stocks and product assortments for products solds, cross-selling, giving discounts to loyal customers, and make promotions on the likely products sold. There was an highlight by Mushtaq & Kanth (2015) on how helpful data mining is in marketing especially on net profit, market analysis, and better marketing strategies. 
+
+## Data
+ The dataset for the Online Retail was retrieved from http://archive.ics.uci.edu/ml/machine-learning-databases/00352/Online Retail.xlsx. This dataset includes:
+
+
+
+```{r echo=FALSE}
+#read excel into R dataframe
+retail_data <- read_excel("C:/Users/User/Downloads/Online Retail (1).xlsx")
+head(retail_data)
+```
+To work with the data there needed to have clean rows with no missing values. To achieve this the complete.cases(data) approach has been used
+```{r}
+retail_data <- retail_data[complete.cases(retail_data), ]
+head(retail_data)
+```
+
+By use of the mutate function the Description column and Country column has to be converted to factor column.
+
+```{r include=FALSE}
+retail_data %>% mutate(Description = as.factor(Description))
+retail_data %>% mutate(Country = as.factor(Country))
+head(retail_data)
+```
+Converts character data to date.Store InvoiceDate as date in new variable and Extract time from InvoiceDate and store in another variable, and lastly Convert and edit InvoiceNo into numeric
+```{r}
+retail_data$Date <- as.Date(retail_data$InvoiceDate)
+TransTime<- format(retail_data$InvoiceDate,"%H:%M:%S")
+InvoiceNo <- as.numeric(as.character(retail_data$InvoiceNo))
+
+```
+Bind new columns TransTime and InvoiceNo into dataframe retail_data
+
+```{r include=FALSE}
+cbind(retail_data,TransTime)
+cbind(retail_data,InvoiceNo)
+head(retail_data)
+```
+
+```{r}
+#get a glimpse of data 
+glimpse(retail_data)
+
+
+```
+Next, the dataframe is converted to transaction data to ensure items bought together in one invoice are placed in one row. The data is grouped by InvoiceNo and date which are placed as one row. 
+
+```{r}
+library(plyr)
+transaction_Retail_Data <- ddply(retail_data,c("InvoiceNo","Date"),
+                       function(df1)paste(df1$Description,
+                       collapse = ","))
+
+head(transaction_Retail_Data)
+```
+Next, The InvoiceNo and Date are set to NULL as they were not needed in the rule mining. 
+
+```{r}
+#set column InvoiceNo  
+transaction_Retail_Data$InvoiceNo <- NULL
+#set column Date
+transaction_Retail_Data$Date <- NULL
+#Rename column to items
+colnames(transaction_Retail_Data) <- c("items")
+#Show Dataframe transaction_Retail_Data
+head(transaction_Retail_Data)
+
+```
+The transactions data had to be store into a .csv file. 
+```{r}
+write.csv(transaction_Retail_Data,"C:/Users/User/Downloads/transactions.csv", quote = FALSE, row.names = FALSE)
+```
+
+## Methodology
+
+Having the data converted to transactions data for rule mining, next was to load the transaction data into transaction class by use of arules package. 
+
+```{r}
+options(warn=-1)
+trans_class <- read.transactions('C:/Users/User/Downloads/transactions.csv', format = 'basket', sep=',')
+```
+
+The transactions object contains 22191 transactions and 7876 items. That is 7876 includes the product descriptions from the dataset and 22191 include the collection of items in the dataset. 
+To view the distributiob of objects, an itemFrequencyPlot was created. 
+
+```{r}
+# Create an item frequency plot for the top 20 items
+if (!require("RColorBrewer")) {
+  # install color package of R
+install.packages("RColorBrewer")
+#include library RColorBrewer
+library(RColorBrewer)
+}
+itemFrequencyPlot(trans_class,topN=20,type="absolute",col=brewer.pal(8,'Pastel2'), main="Absolute Item Frequency Plot")
+```
+Next step involve rule mining through the use of APRIORI algorithm. 
+
+```{r}
+# Min Support as 0.001, confidence as 0.8.
+association.rules <- apriori(trans_class, parameter = list(supp=0.001, conf=0.8,maxlen=10))
+
+```
+
+
+## Results
+
+Having the rule mining it was clear that there were a number of association rules. The analysis indicate that 'WHITE HANGING HEART T-LIGHT HOLDER' and 'REGENCY CAKESTAND 3 TIER' have the most sales.
+
+```{r echo=FALSE}
+itemFrequencyPlot(trans_class,topN=20,type="relative",col=brewer.pal(8,'Pastel2'),main="Relative Item Frequency Plot")
+```
+100% of the customers who bought 'WOBBLY CHICKEN' also bought 'METAL'.
+
+```{r}
+inspect(association.rules[1:10])
+
+```
+
+```{r}
+# Filter top 20 rules with highest lift
+subRules<-association.rules[quality(association.rules)$confidence>0.4]
+subRules2<-head(subRules, n=20, by="lift")
+plot(subRules2, method="paracoord")
+```
+From the top most arrow it is depicted that if a customer 'CHILDS GARDEN SPADE PINK' and 'CHILDS GARDEN RAKE PINK' in my shopping cart, they are likely to buy 'CHILDS GARDEN RAKE BLUE' along with these as well.
+
+## Conclusion
+
+It is possible to perform market basket analysis and identify patterns through which items are bought together. The project has performed market basket analysis using R and Apriori algorithm and from the analysis it is clear that if a customer 'CHILDS GARDEN SPADE PINK' and 'CHILDS GARDEN RAKE PINK' in my shopping cart, they are likely to buy 'CHILDS GARDEN RAKE BLUE' along with these as well. 
+
+# References
+
+Kamley, S., Jaloree, S., & Thakur, R. S. (2014). An Association Rule Mining Model for Finding the Interesting Patterns in Stock Market Dataset. International Journal of Computer Applications, 93(9).
+
+Mushtaq, A., & Kanth, H. (2015). Data mining for marketing. International Journal on Recent and Innovation Trends in Computing and Communication, 3(3), 985-991.
+
+Kapadia, G., & Kalyandurgmath, K. (2015). Market basket analysis of consumer buying behaviour of a lifestyle store. In International Conference on Technology and Business Management (pp. 406-412).
+
+Solnet, D., Boztug, Y., & Dolnicar, S. (2016). An untapped gold mine? Exploring the potential of market basket analysis to grow hotel revenue. International Journal of Hospitality Management, 56, 119-125.
